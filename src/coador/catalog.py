@@ -12,6 +12,7 @@ import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from coador.fileindex import get_index
 from coador.textscan import read_file_content
 
 logger = logging.getLogger(__name__)
@@ -56,8 +57,8 @@ class VersionCatalog:
 def load_catalog(repo_root: Path) -> VersionCatalog | None:
     """Read and parse ``gradle/libs.versions.toml`` if the project has one."""
     repo_root = repo_root.resolve()
-    path = repo_root / CATALOG_PATH
-    if not path.exists():
+    path = get_index(repo_root).find(CATALOG_PATH)
+    if path is None:
         return None
 
     try:

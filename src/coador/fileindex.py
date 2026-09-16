@@ -17,7 +17,7 @@ from contextvars import ContextVar
 from pathlib import Path
 
 from coador.model import Evidence
-from coador.paths import checked_path, read_text
+from coador.paths import UnsafePathError, checked_path, read_text
 from coador.redact import sanitize_snippet
 from coador.repo import discover_paths, normalize_excluded_paths
 
@@ -69,6 +69,8 @@ class FileIndex:
         self.root = root
         self._paths: tuple[Path, ...] = tuple(paths)
         self._directories: tuple[Path, ...] = tuple(directories)
+        self._path_set: frozenset[Path] = frozenset(self._paths)
+        self._directory_set: frozenset[Path] = frozenset(self._directories)
         self.excluded_paths: tuple[Path, ...] = tuple(excluded_paths)
         self._relative: tuple[str, ...] = tuple(
             path.relative_to(root).as_posix() for path in self._paths
@@ -121,8 +123,25 @@ class FileIndex:
         name_set = set(dir_names)
         return [path for path in self._directories if path.name in name_set]
 
+    def find(self, *references: str) -> Path | None:
+        """Return the first known path present in the indexed scan scope."""
+        for reference in references:
+            try:
+                path = checked_path(self.root, reference, directory=True)
+            except (OSError, UnsafePathError):
+                continue
+            if path in self._path_set or path in self._directory_set:
+                return path
+        return None
+
     def read(self, path: Path) -> str | None:
         """Return the text of ``path``, caching files small enough to keep."""
+        try:
+            path = checked_path(self.root, path)
+        except (OSError, UnsafePathError):
+            return None
+        if path not in self._path_set:
+            return None
         if path in self._text:
             return self._text[path]
 

@@ -10,7 +10,7 @@ from pathlib import Path
 from coador.fileindex import active_index, get_index
 from coador.model import Evidence as SourceEvidence
 from coador.model import InventoryCompleteness, Provenance
-from coador.paths import UnsafePathError, checked_path
+from coador.paths import checked_path
 from coador.redact import sanitize_snippet
 
 
@@ -145,14 +145,7 @@ class BaseDetector(ABC):
         )
 
     def find_file(self, *names: str) -> Path | None:
-        for name in names:
-            try:
-                p = checked_path(self.repo_root, name, directory=True)
-            except UnsafePathError:
-                continue
-            if p.exists():
-                return p
-        return None
+        return get_index(self.repo_root).find(*names)
 
     def glob(self, pattern: str | Iterable[str]) -> list[Path]:
         return get_index(self.repo_root).glob(pattern)

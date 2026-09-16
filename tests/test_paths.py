@@ -74,6 +74,17 @@ def test_index_cannot_read_outside_root(tmp_path: Path) -> None:
         index.relative(outside)
 
 
+def test_index_reads_an_indexed_file_from_a_relative_path(tmp_path: Path) -> None:
+    root = tmp_path / "repo"
+    source = root / "app" / "src" / "Main.kt"
+    source.parent.mkdir(parents=True)
+    source.write_text("class Main\n", encoding="utf-8")
+
+    index = FileIndex.build(root)
+
+    assert index.read(Path("app/src/Main.kt")) == "class Main\n"
+
+
 def test_fingerprint_rechecks_a_replaced_file(tmp_path: Path) -> None:
     root = tmp_path / "repo"
     root.mkdir()

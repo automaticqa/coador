@@ -52,9 +52,10 @@ class ScanOutcome:
 def read_project_name(repo_root: Path) -> str:
     """Return ``rootProject.name`` from the settings script, or the directory name."""
     repo_root = repo_root.resolve()
+    index = get_index(repo_root)
     for name in ("settings.gradle.kts", "settings.gradle"):
-        settings = repo_root / name
-        if not settings.exists():
+        settings = index.find(name)
+        if settings is None:
             continue
         content = read_file_content(settings, root=repo_root)
         if content is None:
