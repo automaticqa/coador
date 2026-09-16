@@ -1,0 +1,2 @@
+-keep class com.example.mini.** { *; }
+-dontwarn okhttp3.**

@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+.ipynb_checkpoints/
+.env
+.env.*
+!.env.example
+
+# coador output (the example under examples/ is committed on purpose)
+.coador/
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local instructions and tool configuration
+/AGENTS.md
+/AGENTS.override.md
+/CODEX_HANDOFF.md
+/CLAUDE.md
+/CLAUDE.local.md
+/.agents/
+/.codex/
+/.claude/
+/.mcp.json
+/docs/ROADMAP.md

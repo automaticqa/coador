@@ -1,0 +1,98 @@
+// Prints a JSON model of the Gradle build for coador.
+//
+// The script only reads the configured model: it registers no task, changes no
+// state and is applied through --init-script, so the project's own build files
+// are untouched. Every AGP lookup is guarded because the DSL differs between
+// plugin versions, and a missing value must degrade to "unknown", never fail.
+
+import groovy.json.JsonOutput
+
+gradle.projectsEvaluated { g ->
+    def projects = []
+
+    g.rootProject.allprojects.each { p ->
+        def entry = [
+            path: p.path,
+            dir : p.projectDir.absolutePath,
+        ]
+
+        entry.plugins = p.plugins
+            .collect { plugin -> plugin.class.name }
+            .findAll { name -> name.contains("android") || name.contains("kotlin") }
+        if (p.plugins.hasPlugin("com.android.application")) {
+            entry.androidPluginKind = "application"
+        } else if (p.plugins.hasPlugin("com.android.library")) {
+            entry.androidPluginKind = "library"
+        }
+
+        def android = p.extensions.findByName("android")
+        if (android != null) {
+            def model = [:]
+            def unavailable = []
+            safe(model, unavailable, "namespace") { android.namespace }
+            safe(model, unavailable, "applicationId") { android.defaultConfig.applicationId }
+            safe(model, unavailable, "minSdk") { android.defaultConfig.minSdk }
+            safe(model, unavailable, "targetSdk") { android.defaultConfig.targetSdk }
+            safe(model, unavailable, "compileSdk") { android.compileSdk }
+            safe(model, unavailable, "testInstrumentationRunner") {
+                android.defaultConfig.testInstrumentationRunner
+            }
+            safe(model, unavailable, "buildTypes") { android.buildTypes.collect { it.name } }
+            safe(model, unavailable, "flavorDimensions") { android.flavorDimensionList }
+            safe(model, unavailable, "productFlavors") {
+                android.productFlavors.collect {
+                    [name: it.name, dimension: it.dimension, applicationIdSuffix: it.applicationIdSuffix]
+                }
+            }
+            safe(model, unavailable, "testOptions") {
+                [
+                    animationsDisabled: android.testOptions.animationsDisabled,
+                    execution         : android.testOptions.execution,
+                ]
+            }
+            safe(model, unavailable, "sourceSets") {
+                android.sourceSets.findAll { it.name in ["test", "androidTest"] }.collect { it.name }
+            }
+            model.unavailableProperties = unavailable
+            entry.android = model
+        }
+
+        def projectDependencies = [] as Set
+        def projectDependenciesComplete = true
+        p.configurations.each { configuration ->
+            try {
+                configuration.dependencies.each { dependency ->
+                    if (dependency instanceof org.gradle.api.artifacts.ProjectDependency) {
+                        projectDependencies << dependency.path
+                    }
+                }
+            } catch (Throwable ignored) {
+                projectDependenciesComplete = false
+            }
+        }
+        entry.projectDependencies = projectDependencies.sort()
+        entry.projectDependenciesComplete = projectDependenciesComplete
+
+        projects << entry
+    }
+
+    println "COADOR_MODEL_BEGIN"
+    println JsonOutput.toJson([
+        gradleVersion: g.gradleVersion,
+        rootProject  : g.rootProject.name,
+        rootDir      : g.rootProject.projectDir.absolutePath,
+        projects     : projects,
+    ])
+    println "COADOR_MODEL_END"
+}
+
+static void safe(Map target, List unavailable, String key, Closure<?> read) {
+    try {
+        def value = read()
+        if (value != null) {
+            target[key] = value
+        }
+    } catch (Throwable ignored) {
+        unavailable << key
+    }
+}

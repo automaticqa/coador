@@ -1,0 +1,59 @@
+stages:
+  - build
+  - test
+  - ui-test
+  - report
+
+variables:
+  SUITE: "smoke"
+  FLAVOR: "demo"
+  EMULATOR_COUNT: "2"
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+
+default:
+  image: registry.example.com/android/emulator:34
+  tags:
+    - android
+    - kvm
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:
+      - .gradle/caches
+  retry:
+    max: 2
+    when: runner_system_failure
+
+build:
+  stage: build
+  script:
+    - ./gradlew assembleDemoDebug
+  artifacts:
+    paths:
+      - app/build/outputs/apk/
+
+unit-test:
+  stage: test
+  script:
+    - ./gradlew testDemoDebugUnitTest
+  artifacts:
+    reports:
+      junit: app/build/test-results/**/*.xml
+
+ui-test:
+  stage: ui-test
+  script:
+    - ./scripts/start_emulators.sh "$EMULATOR_COUNT"
+    - marathon -m Marathonfile
+  artifacts:
+    when: always
+    paths:
+      - build/reports/marathon
+      - build/allure-results
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+
+notify:
+  stage: report
+  script:
+    - curl -H "Content-Type: application/json" -d '{"text":"UI tests finished"}' "$TEAMS_WEBHOOK_URL"
+  when: always

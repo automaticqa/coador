@@ -1,0 +1,93 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "coador"
+dynamic = ["version"]
+description = "Deterministic, evidence-backed knowledge base of an Android project for AI coding agents (CLI + MCP server)"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+authors = [{ name = "Stan Tanasevskyi" }]
+keywords = ["android", "gradle", "kotlin", "mcp", "claude-code", "knowledge-base", "static-analysis", "ai-agents"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Software Development :: Documentation",
+    "Typing :: Typed",
+]
+dependencies = [
+    "mcp>=2.2,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "anyio>=4.0",
+    "ruff>=0.6",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+coador = "coador.cli:main"
+coador-mcp = "coador.mcp_server:main"
+
+[project.urls]
+Homepage = "https://github.com/automaticqa/coador"
+Issues = "https://github.com/automaticqa/coador/issues"
+
+[tool.hatch.version]
+path = "src/coador/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/coador"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/coador",
+    "tests",
+    "docs",
+    "examples",
+    "README.md",
+    "ARCHITECTURE.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "LICENSE",
+    "CHANGELOG.md",
+]
+exclude = ["docs/ROADMAP.md"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "N", "RUF"]
+ignore = ["RUF012"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["N802", "N806"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src"]
+warn_unreachable = true
+show_error_codes = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q -m 'not slow'"
+markers = [
+    "slow: opt-in integration tests that clone public repositories (set COADOR_INTEGRATION=1)",
+]

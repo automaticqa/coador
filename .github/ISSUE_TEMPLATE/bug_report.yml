@@ -1,0 +1,89 @@
+name: Bug report
+description: Report reproducible incorrect, unsafe, stale, or broken behavior.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve coador. Do not paste secrets, private source,
+        internal URLs, or an unpublished profile. For a suspected vulnerability,
+        stop here and follow SECURITY.md instead of opening a public issue.
+  - type: input
+    id: version
+    attributes:
+      label: coador version
+      description: Paste the output of `coador --version` or give the commit SHA.
+      placeholder: coador 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: interface
+    attributes:
+      label: Interface
+      description: Where did the problem appear?
+      options:
+        - CLI
+        - MCP server or client
+        - Python API
+        - Generated profile or Markdown
+        - Installation or packaging
+    validations:
+      required: true
+  - type: dropdown
+    id: scan_mode
+    attributes:
+      label: Scan mode
+      options:
+        - Heuristic (default)
+        - Gradle opt-in
+        - Not applicable
+    validations:
+      required: true
+  - type: textarea
+    id: target_shape
+    attributes:
+      label: Minimal target shape
+      description: Describe modules, build-script language, test source sets, and CI format. Prefer a synthetic or public reproduction over private source.
+      placeholder: Kotlin DSL, one app module, Compose UI, GitHub Actions
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Include the exact sanitized command and relevant options.
+      placeholder: |
+        1. Create or check out ...
+        2. Run coador ...
+        3. Read section ...
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Paste the smallest sanitized output that demonstrates the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: State the observable finding or controlled error you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Public or synthetic evidence
+      description: Provide repository-relative paths and lines, or a public pinned revision. Remove credentials and private business data.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I searched existing issues for this behavior.
+          required: true
+        - label: I removed secrets, private source, internal URLs, and personal data.
+          required: true

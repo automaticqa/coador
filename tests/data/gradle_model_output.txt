@@ -1,0 +1,7 @@
+> Task :help
+COADOR_MODEL_BEGIN
+{"gradleVersion": "8.14.3", "rootProject": "buildSrc", "rootDir": "/repo/buildSrc", "projects": [{"path": ":", "dir": "/repo", "plugins": [], "projectDependencies": []}]}
+COADOR_MODEL_END
+COADOR_MODEL_BEGIN
+{"gradleVersion": "8.14.3", "rootProject": "mini-android", "rootDir": "/repo", "projects": [{"path": ":", "dir": "/repo", "plugins": [], "projectDependencies": []}, {"path": ":app", "dir": "/repo/app", "plugins": ["com.android.application", "org.jetbrains.kotlin.android"], "android": {"namespace": "com.example.mini", "applicationId": "com.example.mini", "minSdk": 26, "targetSdk": 35, "compileSdk": 35, "testInstrumentationRunner": "com.example.mini.HiltTestRunner", "buildTypes": ["debug", "release"], "flavorDimensions": ["brand"], "productFlavors": [{"name": "demo", "dimension": "brand", "applicationIdSuffix": ".demo"}, {"name": "prod", "dimension": "brand", "applicationIdSuffix": null}], "testOptions": {"animationsDisabled": true, "execution": "androidx_test_orchestrator"}, "sourceSets": ["test", "androidTest"]}, "projectDependencies": [":core:network", ":core:ui", ":feature:login", ":app"]}, {"path": ":core:network", "dir": "/repo/core/network", "plugins": ["com.android.library"], "android": {"namespace": "com.example.core.network", "buildTypes": ["debug", "release"]}, "projectDependencies": []}, {"path": ":build-logic", "dir": "/repo/build-logic", "plugins": ["org.jetbrains.kotlin.jvm"], "projectDependencies": []}]}
+COADOR_MODEL_END

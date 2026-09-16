@@ -1,0 +1,82 @@
+name: Detector coverage gap
+description: Propose an observable Android or test-onboarding signal that is missing or incorrect.
+title: "[Detector]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Detectors report observable signals, not inferred architecture. A useful
+        request includes positive evidence, a negative case, and the boundary beyond
+        which coador should say that the answer is unknown.
+  - type: input
+    id: question
+    attributes:
+      label: Onboarding question
+      description: What concrete question should the detector help a test engineer answer?
+      placeholder: Which task does CI use for instrumentation tests?
+    validations:
+      required: true
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Closest layer
+      options:
+        - 01 Project Overview
+        - 02 Build and Run
+        - 03 Architecture
+        - 04 Modules Map
+        - 05 Config and Environment
+        - 06 Dependencies
+        - 07 Testing
+        - 08 UI Testing
+        - 09 CI/CD
+        - Unsure
+    validations:
+      required: true
+  - type: input
+    id: section
+    attributes:
+      label: Existing section, if any
+      description: Use the stable section ID from docs/detectors.md, or leave blank for a new section proposal.
+      placeholder: test_tasks
+  - type: textarea
+    id: current_output
+    attributes:
+      label: Current output
+      description: Paste sanitized `show --json` output or describe the missing section.
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Positive and negative evidence
+      description: Link a pinned public revision or provide a minimal synthetic example. Explain what must match and what must not match.
+    validations:
+      required: true
+  - type: textarea
+    id: expected_boundary
+    attributes:
+      label: Expected finding and limitation
+      description: State the supported summary/provenance and what the detector must not claim.
+    validations:
+      required: true
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Contribution interest
+      options:
+        - I can prepare a pull request
+        - I can help validate a proposed fix
+        - I am reporting the gap only
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I searched the detector catalogue and existing issues.
+          required: true
+        - label: The reproduction contains no secrets, private source, internal URLs, or personal data.
+          required: true

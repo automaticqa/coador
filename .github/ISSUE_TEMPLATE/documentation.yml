@@ -1,0 +1,40 @@
+name: Documentation improvement
+description: Report unclear, incorrect, outdated, or missing public documentation.
+title: "[Docs]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Documentation should describe behavior that exists today. Use a detector
+        coverage request when the underlying scanner behavior also needs to change.
+  - type: input
+    id: location
+    attributes:
+      label: Page or section
+      description: Link the page and name the heading, command, or paragraph.
+      placeholder: docs/mcp.md - Evidence-first agent workflow
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Explain what is unclear or incorrect and who it blocks.
+    validations:
+      required: true
+  - type: textarea
+    id: correction
+    attributes:
+      label: Suggested correction
+      description: Provide corrected wording, commands, or a public authoritative source when possible.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I checked the current README, documentation, and existing issues.
+          required: true
+        - label: Any example data is public, synthetic, and free of credentials.
+          required: true
