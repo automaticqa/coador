@@ -1,8 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.1.0 - 2026-09-17
 
-Initial Coador release candidate.
+Initial public Coador release.
 
 - Deterministic local Android repository scanning across nine knowledge layers.
 - Schema v3 profiles with source evidence, inventory completeness and pagination.

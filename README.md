@@ -210,9 +210,8 @@ The map has explicit limits:
 
 ## Installation
 
-Coador requires Python 3.11 or newer. Release `0.1.0` is currently a release
-candidate; after it is published, run it without a permanent installation through
-`uvx`:
+Coador requires Python 3.11 or newer. Run version `0.1.0` without a permanent
+installation through `uvx`:
 
 ```bash
 uvx --from coador==0.1.0 coador --version
@@ -281,12 +280,14 @@ layer's `<!-- GENERATED:BEGIN -->` marker survives refreshes.
 
 ## MCP
 
-`coador-mcp` serves one repository over MCP stdio with six `kb_*` tools and matching
+<!-- mcp-name: io.github.automaticqa/coador -->
+
+`coador mcp` (also available as `coador-mcp`) serves one repository over MCP stdio with six `kb_*` tools and matching
 `kb://` resources. Register an explicit Android repository so the server cannot
 silently follow an unrelated working directory:
 
 ```bash
-codex mcp add coador -- uvx --from coador==0.1.0 coador-mcp \
+codex mcp add coador -- uvx --from coador==0.1.0 coador mcp \
   --repo "/absolute/path/to/your/android/project"
 codex mcp list
 ```
@@ -337,7 +338,7 @@ isolation across three pinned public repositories.
 
 ## Project status
 
-Coador `0.1.0` is a release candidate and has not yet been published. The package
+Coador `0.1.0` is the first public release (2026-09-17). The package
 contains 84 detectors across nine layers, a local CLI, an MCP stdio server, optional
 Gradle probing, deterministic JSON/Markdown output, evidence provenance, inventory
 pagination, freshness checks and recovery from damaged generated output.

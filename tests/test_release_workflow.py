@@ -48,3 +48,15 @@ def test_publish_workflow_repeats_release_gates_before_building() -> None:
         assert workflow.index(gate) < build_position
     assert "install and exercise the release wheel" in workflow
     assert "tests/test_mcp_stdio.py" in workflow
+
+
+def test_registry_publication_follows_pypi_and_validates_metadata() -> None:
+    workflow = Path(".github/workflows/publish.yml").read_text(encoding="utf-8")
+    registry_job = workflow.split("  publish-registry:", 1)[1]
+    assert "needs: publish" in registry_job
+    assert "id-token: write" in registry_job
+    assert "./mcp-publisher login github-oidc" in registry_job
+    assert registry_job.index("validate server.json") < registry_job.index("publish server.json")
+    assert registry_job.index("wait for the PyPI release") < registry_job.index(
+        "publish server.json"
+    )

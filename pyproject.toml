@@ -58,6 +58,7 @@ include = [
     "docs",
     "examples",
     "README.md",
+    "server.json",
     "ARCHITECTURE.md",
     "CONTRIBUTING.md",
     "SECURITY.md",

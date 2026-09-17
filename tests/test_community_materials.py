@@ -61,7 +61,7 @@ def test_starter_tasks_are_bounded_and_discoverable() -> None:
     assert "SECURITY.md" in contributing
 
 
-def test_release_notes_link_to_public_guides_and_keep_launch_pending() -> None:
+def test_release_notes_link_to_public_guides_and_record_release_date() -> None:
     release = Path("docs/releases/0.1.0.md").read_text(encoding="utf-8")
 
     for target in (
@@ -74,4 +74,4 @@ def test_release_notes_link_to_public_guides_and_keep_launch_pending() -> None:
     ):
         assert target in release
 
-    assert release.startswith("# Coador 0.1.0\n\nStatus: release candidate; not yet published.")
+    assert release.startswith("# Coador 0.1.0\n\nRelease date: 2026-09-17.")

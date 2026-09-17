@@ -128,6 +128,8 @@ def build_parser() -> argparse.ArgumentParser:
     show.add_argument("--json", action="store_true", help="print the content as JSON")
     show.set_defaults(func=cmd_show)
 
+    subparsers.add_parser("mcp", help="serve an Android repository over MCP stdio")
+
     return parser
 
 
@@ -414,8 +416,17 @@ def _format_section(section: Section) -> str:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    prefix = 0
+    while prefix < len(arguments) and arguments[prefix] in {"-v", "--verbose"}:
+        prefix += 1
+    if arguments[prefix : prefix + 1] == ["mcp"]:
+        from coador.mcp_server import main as mcp_main
+
+        return mcp_main(arguments[:prefix] + arguments[prefix + 1 :])
+
     parser = build_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(arguments)
     configure_logging(args.verbose)
     if args.command is None:
         parser.print_help(sys.stderr)

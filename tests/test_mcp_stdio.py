@@ -40,7 +40,7 @@ def _structured(result: Any) -> dict[str, Any]:
     return cast(dict[str, Any], result.structured_content)
 
 
-async def _exercise_server(source_fixture: Path, errlog: TextIO) -> None:
+async def _exercise_server(source_fixture: Path, errlog: TextIO, via_cli: bool = False) -> None:
     protocol_errors: list[Exception] = []
 
     async def record_protocol_error(message: Any) -> None:
@@ -62,81 +62,85 @@ async def _exercise_server(source_fixture: Path, errlog: TextIO) -> None:
         }
 
         parameters = StdioServerParameters(
-            command=str(_entry_point()),
-            args=["--repo", str(repo), "--kb-dir", str(kb_dir)],
+            command=str(
+                _entry_point().with_name("coador.exe" if sys.platform == "win32" else "coador")
+                if via_cli
+                else _entry_point()
+            ),
+            args=(["mcp"] if via_cli else []) + ["--repo", str(repo), "--kb-dir", str(kb_dir)],
             cwd=launch_dir,
         )
 
         with anyio.fail_after(SESSION_TIMEOUT_SECONDS):
-            async with stdio_client(parameters, errlog=errlog) as streams:
-                async with ClientSession(
-                    *streams, message_handler=record_protocol_error
-                ) as session:
-                    initialized = await session.initialize()
-                    assert initialized.server_info.name == "coador"
-                    assert initialized.instructions is not None
-                    assert "Start with `kb_overview`" in initialized.instructions
+            async with (
+                stdio_client(parameters, errlog=errlog) as streams,
+                ClientSession(*streams, message_handler=record_protocol_error) as session,
+            ):
+                initialized = await session.initialize()
+                assert initialized.server_info.name == "coador"
+                assert initialized.instructions is not None
+                assert "Start with `kb_overview`" in initialized.instructions
 
-                    listed = await session.list_tools()
-                    tools = {tool.name: tool for tool in listed.tools}
-                    assert set(tools) == EXPECTED_TOOLS
-                    assert tools["kb_refresh"].annotations is not None
-                    assert tools["kb_refresh"].annotations.read_only_hint is False
-                    for name in EXPECTED_TOOLS - {"kb_refresh"}:
-                        assert tools[name].annotations is not None
-                        assert tools[name].annotations.read_only_hint is True
+                listed = await session.list_tools()
+                tools = {tool.name: tool for tool in listed.tools}
+                assert set(tools) == EXPECTED_TOOLS
+                assert tools["kb_refresh"].annotations is not None
+                assert tools["kb_refresh"].annotations.read_only_hint is False
+                for name in EXPECTED_TOOLS - {"kb_refresh"}:
+                    assert tools[name].annotations is not None
+                    assert tools[name].annotations.read_only_hint is True
 
-                    missing = _structured(await session.call_tool("kb_status"))
-                    assert missing["state"] == "missing"
-                    assert missing["repository"] == str(repo)
+                missing = _structured(await session.call_tool("kb_status"))
+                assert missing["state"] == "missing"
+                assert missing["repository"] == str(repo)
 
-                    unavailable = await session.call_tool("kb_overview")
-                    assert unavailable.is_error
-                    assert "kb_refresh" in str(unavailable.content)
+                unavailable = await session.call_tool("kb_overview")
+                assert unavailable.is_error
+                assert "kb_refresh" in str(unavailable.content)
 
-                    refreshed = _structured(await session.call_tool("kb_refresh"))
-                    assert refreshed["action"] == "scanned"
-                    assert refreshed["state"] == "fresh"
-                    assert kb_dir.joinpath("profile.json").is_file()
+                refreshed = _structured(await session.call_tool("kb_refresh"))
+                assert refreshed["action"] == "scanned"
+                assert refreshed["state"] == "fresh"
+                assert kb_dir.joinpath("profile.json").is_file()
 
-                    overview = _structured(await session.call_tool("kb_overview"))
-                    assert overview["project"] == "mini-android"
+                overview = _structured(await session.call_tool("kb_overview"))
+                assert overview["project"] == "mini-android"
 
-                    layers = _structured(await session.call_tool("kb_list_layers"))
-                    assert len(layers["result"]) == 9
-                    resources = await session.list_resources()
-                    assert "kb://layers" in {str(resource.uri) for resource in resources.resources}
-                    for uri in (
-                        "kb://layers",
-                        "kb://layer/03_architecture",
-                        "kb://section/03_architecture/di_framework",
-                    ):
-                        resource = await session.read_resource(uri)
-                        assert resource.contents
-                        content = resource.contents[0]
-                        assert hasattr(content, "text")
-                        assert json.loads(content.text)
+                layers = _structured(await session.call_tool("kb_list_layers"))
+                assert len(layers["result"]) == 9
+                resources = await session.list_resources()
+                assert "kb://layers" in {str(resource.uri) for resource in resources.resources}
+                for uri in (
+                    "kb://layers",
+                    "kb://layer/03_architecture",
+                    "kb://section/03_architecture/di_framework",
+                ):
+                    resource = await session.read_resource(uri)
+                    assert resource.contents
+                    content = resource.contents[0]
+                    assert hasattr(content, "text")
+                    assert json.loads(content.text)
 
-                    section = _structured(
-                        await session.call_tool(
-                            "kb_get_section",
-                            {"layer_id": "03_architecture", "section_id": "di_framework"},
-                        )
-                    )
-                    assert section["summary"] == "Hilt"
-                    assert section["evidence"]
-
-                    search = _structured(
-                        await session.call_tool("kb_search", {"query": "retrofit", "limit": 3})
-                    )
-                    assert search["result"][0]["section"] == "networking_stack"
-
-                    invalid = await session.call_tool(
+                section = _structured(
+                    await session.call_tool(
                         "kb_get_section",
-                        {"layer_id": "03_architecture", "section_id": "not-a-section"},
+                        {"layer_id": "03_architecture", "section_id": "di_framework"},
                     )
-                    assert invalid.is_error
-                    assert "Unknown section" in str(invalid.content)
+                )
+                assert section["summary"] == "Hilt"
+                assert section["evidence"]
+
+                search = _structured(
+                    await session.call_tool("kb_search", {"query": "retrofit", "limit": 3})
+                )
+                assert search["result"][0]["section"] == "networking_stack"
+
+                invalid = await session.call_tool(
+                    "kb_get_section",
+                    {"layer_id": "03_architecture", "section_id": "not-a-section"},
+                )
+                assert invalid.is_error
+                assert "Unknown section" in str(invalid.content)
 
         assert {
             path.relative_to(repo): (path.read_bytes(), path.stat().st_mtime_ns)
@@ -153,7 +157,8 @@ def _run_smoke(source_fixture: Path) -> str:
 
     with tempfile.TemporaryFile(mode="w+", encoding="utf-8") as errlog:
         try:
-            anyio.run(_exercise_server, source_fixture, errlog)
+            anyio.run(_exercise_server, source_fixture, errlog, False)
+            anyio.run(_exercise_server, source_fixture, errlog, True)
         finally:
             errlog.seek(0)
             diagnostics = errlog.read()

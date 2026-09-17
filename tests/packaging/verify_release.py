@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import stat
 import tarfile
@@ -43,6 +44,7 @@ SDIST_PUBLIC_FILES = {
     "CONTRIBUTING.md",
     "LICENSE",
     "README.md",
+    "server.json",
     "SECURITY.md",
     "docs/adoption.md",
     "docs/contributor-tasks.md",
@@ -57,6 +59,8 @@ SDIST_PUBLIC_FILES = {
     "src/coador/py.typed",
     "tests/test_mcp_stdio.py",
 }
+
+MCP_MARKER = b"<!-- mcp-name: io.github.automaticqa/coador -->"
 
 EXPECTED_ENTRY_POINTS = {
     "coador = coador.cli:main",
@@ -123,6 +127,8 @@ def _one_matching(files: Mapping[str, bytes], suffix: str) -> tuple[str, bytes]:
 
 
 def _metadata_version(metadata: bytes) -> str:
+    if MCP_MARKER not in metadata:
+        raise AssertionError("package long description is missing MCP ownership marker")
     text = metadata.decode("utf-8")
     required = {
         "Name: coador",
@@ -137,7 +143,10 @@ def _metadata_version(metadata: bytes) -> str:
     match = re.search(r"(?m)^Version: ([^\s]+)$", text)
     if match is None:
         raise AssertionError("package metadata has no version")
-    return match.group(1)
+    version = match.group(1)
+    if version != "0.1.0":
+        raise AssertionError(f"unexpected release version: {version}")
+    return version
 
 
 def _assert_no_private_markers(files: Mapping[str, bytes]) -> None:
@@ -201,6 +210,10 @@ def verify_sdist(path: Path) -> str:
     if missing_public:
         raise AssertionError(f"sdist is missing public files: {missing_public}")
 
+    if MCP_MARKER not in relative["README.md"]:
+        raise AssertionError("sdist README is missing MCP ownership marker")
+    verify_server(relative["server.json"], version)
+
     examples_readme = relative["examples/README.md"].decode("utf-8")
     if "12f80da6518e161ed16a06a68e71fb8a873576d6" not in examples_readme:
         raise AssertionError("public example source revision is missing")
@@ -208,6 +221,24 @@ def verify_sdist(path: Path) -> str:
         raise AssertionError("public example attribution is missing")
     _assert_no_private_markers(relative)
     return version
+
+
+def verify_server(content: bytes, version: str) -> None:
+    server = json.loads(content)
+    assert server["name"] == "io.github.automaticqa/coador"
+    assert server["version"] == version
+    assert len(server["packages"]) == 1
+    package = server["packages"][0]
+    assert package["registryType"] == "pypi"
+    assert package["identifier"] == "coador"
+    assert package["version"] == version
+    assert package["runtimeHint"] == "uvx"
+    assert package["transport"] == {"type": "stdio"}
+    command, repo = package["packageArguments"]
+    assert command == {"type": "positional", "value": "mcp"}
+    assert repo["type"] == "named" and repo["name"] == "--repo"
+    assert repo["isRequired"] is True and repo["format"] == "filepath"
+    assert "value" not in repo, "repository path must remain configurable"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -222,6 +253,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     sdist_version = verify_sdist(args.sdist)
     wheel_version = verify_wheel(args.wheel)
+    repository_server = Path(__file__).resolve().parents[2] / "server.json"
+    verify_server(repository_server.read_bytes(), wheel_version)
     if sdist_version != wheel_version:
         raise AssertionError(f"sdist/wheel version mismatch: {sdist_version} != {wheel_version}")
     if args.expected_tag is not None and args.expected_tag != f"v{wheel_version}":

@@ -232,3 +232,26 @@ def test_cli_lifecycle_preserves_android_sources_and_legacy_bases(
     assert (kb_dir / "profile.json").is_file()
     if external:
         assert not (repo_copy / ".coador").exists()
+
+
+@pytest.mark.parametrize("prefix", [[], ["-v"], ["--verbose"]])
+def test_mcp_delegates_arguments(prefix: list[str], monkeypatch: pytest.MonkeyPatch) -> None:
+    from coador import mcp_server
+
+    received: list[str] = []
+
+    def serve(argv: list[str]) -> int:
+        received.extend(argv)
+        return 7
+
+    monkeypatch.setattr(mcp_server, "main", serve)
+    options = ["--repo", "Android project", "--kb-dir", "external kb"]
+    assert main([*prefix, "mcp", *options]) == 7
+    assert received == [*prefix, *options]
+
+
+def test_mcp_help(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(["mcp", "--help"])
+    assert exc.value.code == 0
+    assert "--repo" in capsys.readouterr().out

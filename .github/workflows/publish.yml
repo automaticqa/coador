@@ -73,3 +73,32 @@ jobs:
           dist/coador-*-py3-none-any.whl
       - name: publish with PyPI trusted publishing
         uses: pypa/gh-action-pypi-publish@release/v1
+
+  publish-registry:
+    name: publish MCP Registry metadata
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: install MCP publisher
+        run: |
+          curl --fail --location --retry 3 \
+            https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz \
+            --output /tmp/mcp-publisher.tar.gz
+          tar -xzf /tmp/mcp-publisher.tar.gz mcp-publisher
+      - name: validate Registry metadata
+        run: ./mcp-publisher validate server.json
+      - name: wait for the PyPI release
+        run: |
+          VERSION=$(jq -r '.packages[0].version' server.json)
+          curl --fail --location --retry 12 --retry-all-errors --retry-delay 5 --max-time 15 \
+            "https://pypi.org/pypi/coador/$VERSION/json" --output /tmp/pypi-release.json
+          jq -e --arg marker 'mcp-name: io.github.automaticqa/coador' \
+            '.info.description | contains($marker)' /tmp/pypi-release.json
+      - name: authenticate to MCP Registry
+        run: ./mcp-publisher login github-oidc
+      - name: publish to MCP Registry
+        run: ./mcp-publisher publish server.json
