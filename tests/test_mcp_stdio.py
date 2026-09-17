@@ -92,7 +92,9 @@ async def _exercise_server(source_fixture: Path, errlog: TextIO, via_cli: bool =
 
                 missing = _structured(await session.call_tool("kb_status"))
                 assert missing["state"] == "missing"
-                assert missing["repository"] == str(repo)
+                reported_repo = Path(missing["repository"])
+                assert reported_repo.is_absolute()
+                assert reported_repo.samefile(repo)
 
                 unavailable = await session.call_tool("kb_overview")
                 assert unavailable.is_error

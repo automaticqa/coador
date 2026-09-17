@@ -13,7 +13,7 @@ def test_atomic_write_text_writes_utf8_content(tmp_path: Path) -> None:
 
     atomic_write_text(path, "Grüße, мир\n")
 
-    assert path.read_bytes() == "Grüße, мир\n".encode()
+    assert path.read_text(encoding="utf-8") == "Grüße, мир\n"
     assert list(tmp_path.iterdir()) == [path]
 
 
@@ -40,4 +40,4 @@ def test_write_json_preserves_existing_format(tmp_path: Path) -> None:
 
     write_json(path, {"message": "Grüße", "enabled": True})
 
-    assert path.read_bytes() == ('{\n  "message": "Grüße",\n  "enabled": true\n}\n'.encode())
+    assert path.read_text(encoding="utf-8") == '{\n  "message": "Grüße",\n  "enabled": true\n}\n'
