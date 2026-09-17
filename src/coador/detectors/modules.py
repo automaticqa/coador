@@ -305,6 +305,8 @@ class FlavorOverridesDetector(BaseDetector):
                     child = checked_path(self.repo_root, candidate, directory=True)
                 except UnsafePathError:
                     continue
+                if not child.is_dir():
+                    continue
                 source_dirs = []
                 for name in ("java", "kotlin", "res"):
                     try:
@@ -313,18 +315,13 @@ class FlavorOverridesDetector(BaseDetector):
                         )
                     except UnsafePathError:
                         continue
-                if (
-                    child.is_dir()
-                    and child.name
-                    not in {
-                        "main",
-                        "test",
-                        "androidTest",
-                        "debug",
-                        "release",
-                    }
-                    and any(source_dir.exists() for source_dir in source_dirs)
-                ):
+                if child.name not in {
+                    "main",
+                    "test",
+                    "androidTest",
+                    "debug",
+                    "release",
+                } and any(source_dir.exists() for source_dir in source_dirs):
                     flavor_dirs.add(child.name)
                     evidence.append(
                         Evidence(

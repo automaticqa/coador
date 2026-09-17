@@ -2,9 +2,28 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from coador.model import Profile, Provenance
 from coador.registry import DETECTORS, LAYERS
 from coador.scanner import read_project_name, scan
+
+
+@pytest.mark.parametrize("src_path", ["src", ".github/actions/example/src"])
+def test_flavor_section_survives_regular_files_under_src(tmp_path: Path, src_path: str) -> None:
+    src = tmp_path / src_path
+    (src / "demo" / "java").mkdir(parents=True)
+    (src / "README.md").write_text("Source layout notes", encoding="utf-8")
+    (src / "markdown.ts").write_text("export {};", encoding="utf-8")
+
+    section = scan(tmp_path).find_section("04_modules_map", "flavor_overrides_location")
+
+    assert section is not None
+    assert section.error is None
+    assert section.detected
+    assert [(entry.path, entry.provenance) for entry in section.evidence] == [
+        (f"{src_path}/demo", Provenance.FILE)
+    ]
 
 
 def test_profile_covers_every_registered_detector(fixture_profile: Profile) -> None:
