@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
 
+from coador.gitinfo import GitInfo
 from coador.kb import KnowledgeBase, State
 from coador.model import SCHEMA_VERSION
 
@@ -62,6 +65,99 @@ def test_schema_mismatch_is_reported(kb: KnowledgeBase) -> None:
     status = kb.status()
     assert status.state is State.SCHEMA_MISMATCH
     assert "coador scan" in status.describe()
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed")
+def test_option_like_manifest_commit_cannot_write_outside_kb(
+    kb: KnowledgeBase, tmp_path: Path
+) -> None:
+    subprocess.run(["git", "-C", str(kb.repo_root), "init", "--quiet"], check=True)
+    subprocess.run(
+        ["git", "-C", str(kb.repo_root), "config", "user.email", "test@example.invalid"],
+        check=True,
+    )
+    subprocess.run(["git", "-C", str(kb.repo_root), "config", "user.name", "Test"], check=True)
+    subprocess.run(["git", "-C", str(kb.repo_root), "add", "."], check=True)
+    subprocess.run(
+        ["git", "-C", str(kb.repo_root), "commit", "--quiet", "-m", "initial"], check=True
+    )
+    kb.refresh()
+    marker = tmp_path / "outside-marker"
+    marker.write_text("sentinel", encoding="utf-8")
+    manifest = json.loads(kb.manifest_path.read_text(encoding="utf-8"))
+    manifest["git_commit"] = f"--output={marker}"
+    kb.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    status = kb.status()
+
+    assert status.state is State.DAMAGED
+    assert status.reason == "Git commit is invalid"
+    assert marker.read_text(encoding="utf-8") == "sentinel"
+
+
+@pytest.mark.parametrize("schema_mismatch", [False, True])
+def test_invalid_manifest_commit_never_reaches_diff_on_error_paths(
+    kb: KnowledgeBase,
+    monkeypatch: pytest.MonkeyPatch,
+    schema_mismatch: bool,
+) -> None:
+    kb.refresh()
+    manifest = json.loads(kb.manifest_path.read_text(encoding="utf-8"))
+    manifest["git_commit"] = "--output=/tmp/should-not-exist"
+    if schema_mismatch:
+        manifest["schema_version"] = SCHEMA_VERSION + 1
+    kb.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    monkeypatch.setattr("coador.kb.read_git_info", lambda _root: GitInfo("a" * 40, False))
+
+    def fail_if_called(_root: Path, _commit: object) -> int | None:
+        pytest.fail("invalid persisted commit reached changed_files_since")
+
+    monkeypatch.setattr("coador.kb.changed_files_since", fail_if_called)
+
+    status = kb.status()
+    assert status.state is (State.SCHEMA_MISMATCH if schema_mismatch else State.DAMAGED)
+    with pytest.raises(FileNotFoundError):
+        kb.load()
+
+
+def test_refresh_rebuilds_cache_with_invalid_manifest_commit(
+    kb: KnowledgeBase, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    kb.refresh()
+    manifest = json.loads(kb.manifest_path.read_text(encoding="utf-8"))
+    manifest["git_commit"] = "--output=/tmp/should-not-exist"
+    kb.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    def fail_if_called(_root: Path, _commit: object) -> int | None:
+        pytest.fail("invalid persisted commit reached changed_files_since")
+
+    monkeypatch.setattr("coador.kb.changed_files_since", fail_if_called)
+
+    status = kb.refresh()
+    assert status.state is State.FRESH
+    assert status.refresh_action == "scanned"
+
+
+def test_uppercase_manifest_commit_is_normalized_before_diff(
+    kb: KnowledgeBase, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    kb.refresh()
+    manifest = json.loads(kb.manifest_path.read_text(encoding="utf-8"))
+    manifest["git_commit"] = "A" * 40
+    kb.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    monkeypatch.setattr("coador.kb.read_git_info", lambda _root: GitInfo("b" * 40, False))
+    observed: list[object] = []
+
+    def record_commit(_root: Path, commit: object) -> int:
+        observed.append(commit)
+        return 0
+
+    monkeypatch.setattr("coador.kb.changed_files_since", record_commit)
+
+    status = kb.status()
+    assert status.state is State.FRESH
+    assert status.git_commit == "a" * 40
+    assert observed == ["a" * 40]
 
 
 def test_reading_without_a_scan_raises(kb: KnowledgeBase) -> None:

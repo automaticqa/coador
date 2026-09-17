@@ -20,7 +20,7 @@ from typing import Any
 
 from coador import __version__
 from coador.fingerprint import collect_entries, content_fingerprint, quick_fingerprint
-from coador.gitinfo import changed_files_since, read_git_info
+from coador.gitinfo import changed_files_since, normalize_git_object_id, read_git_info
 from coador.gradle_probe import DEFAULT_TIMEOUT_SECONDS as GRADLE_TIMEOUT_SECONDS
 from coador.locking import exclusive_file_lock
 from coador.model import (
@@ -358,6 +358,10 @@ class KnowledgeBase:
                 manifest,
                 reason="cache contract is incompatible",
             )
+        try:
+            normalize_git_object_id(manifest.get("git_commit"))
+        except ValueError:
+            return CacheInspection(State.DAMAGED, manifest, reason="Git commit is invalid")
         if ScanOptions.from_manifest(manifest.get("scan_options")) is None:
             return CacheInspection(State.DAMAGED, manifest, reason="scan options are invalid")
         if manifest.get("requested_scan_mode") not in {"heuristic", "gradle"}:
@@ -691,10 +695,13 @@ class KnowledgeBase:
         reason: str | None = None,
         files_count: int,
     ) -> Status:
+        try:
+            stored_commit = normalize_git_object_id(inspection.manifest.get("git_commit"))
+        except ValueError:
+            stored_commit = None
         manifest = sanitize_public(inspection.manifest)
         if not isinstance(manifest, dict):
             manifest = {}
-        stored_commit = _as_str(manifest.get("git_commit"))
         git = read_git_info(self.repo_root)
         changed = (
             changed_files_since(self.repo_root, stored_commit)

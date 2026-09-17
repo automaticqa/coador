@@ -10,6 +10,8 @@ unavailable or the path is not a work tree.
 from __future__ import annotations
 
 import logging
+import os
+import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,6 +21,7 @@ from coador.redact import sanitize_snippet
 logger = logging.getLogger(__name__)
 
 _TIMEOUT_SECONDS = 10
+_OBJECT_ID_RE = re.compile(r"(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})\Z")
 
 
 @dataclass(frozen=True)
@@ -41,14 +44,26 @@ class GitInfo:
 UNAVAILABLE = GitInfo(commit=None, dirty=None, root=None)
 
 
+def normalize_git_object_id(value: object) -> str | None:
+    """Return a complete lowercase Git object ID, allowing an absent value."""
+    if value is None:
+        return None
+    if not isinstance(value, str) or _OBJECT_ID_RE.fullmatch(value) is None:
+        raise ValueError("Invalid Git object ID")
+    return value.lower()
+
+
 def _run_git(repo_root: Path, *args: str) -> str | None:
+    environment = os.environ.copy()
+    environment["GIT_OPTIONAL_LOCKS"] = "0"
     try:
         completed = subprocess.run(
-            ["git", "-C", str(repo_root), *args],
+            ["git", "-c", "core.fsmonitor=false", "-C", str(repo_root), *args],
             capture_output=True,
             text=True,
             timeout=_TIMEOUT_SECONDS,
             check=False,
+            env=environment,
         )
     except (OSError, subprocess.SubprocessError):
         logger.debug("Git metadata unavailable")
@@ -61,22 +76,33 @@ def _run_git(repo_root: Path, *args: str) -> str | None:
 
 def read_git_info(repo_root: Path) -> GitInfo:
     """Return the current commit, work-tree root, and whether ``repo_root`` has local changes."""
-    commit = _run_git(repo_root, "rev-parse", "HEAD")
-    if commit is None:
+    raw_commit = _run_git(repo_root, "rev-parse", "HEAD")
+    if raw_commit is None:
         return UNAVAILABLE
+    try:
+        commit = normalize_git_object_id(raw_commit.strip())
+    except ValueError:
+        return UNAVAILABLE
+    assert commit is not None
 
     toplevel = _run_git(repo_root, "rev-parse", "--show-toplevel")
     status = _run_git(repo_root, "status", "--porcelain", "--", str(repo_root))
     return GitInfo(
-        commit=commit.strip(),
+        commit=commit,
         dirty=None if status is None else bool(status.strip()),
         root=sanitize_snippet(toplevel.strip()) if toplevel else None,
     )
 
 
-def changed_files_since(repo_root: Path, commit: str) -> int | None:
+def changed_files_since(repo_root: Path, commit: object) -> int | None:
     """Count files under ``repo_root`` that differ between ``commit`` and the work tree."""
-    output = _run_git(repo_root, "diff", "--name-only", commit, "--", str(repo_root))
+    try:
+        object_id = normalize_git_object_id(commit)
+    except ValueError:
+        return None
+    if object_id is None:
+        return None
+    output = _run_git(repo_root, "diff", "--name-only", object_id, "--", str(repo_root))
     if output is None:
         return None
     return len([line for line in output.splitlines() if line.strip()])
